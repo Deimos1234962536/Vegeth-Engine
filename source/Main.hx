@@ -42,6 +42,8 @@ class Main extends Sprite
 	{
 		super();
 
+		CrashCheck.check();
+		
 		if (stage != null)
 		{
 			init();
