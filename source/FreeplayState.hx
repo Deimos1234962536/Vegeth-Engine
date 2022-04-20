@@ -19,7 +19,6 @@ import flixel.text.FlxText;
 import flixel.util.FlxColor;
 import lime.utils.Assets;
 
-
 #if windows
 import Discord.DiscordClient;
 #end
@@ -29,8 +28,8 @@ using StringTools;
 class FreeplayState extends MusicBeatState
 {
 	public static var songs:Array<SongMetadata> = [];
+	private var coolColors = [0xFF9271FD, 0xFF9271FD, 0xFF223344, 0xFF941653, 0xFFFC96D7, 0xFFA0D1FF, 0xFFFF78BF, 0xFFF6B604];
 
-	var selector:FlxText;
 	public static var curSelected:Int = 0;
 	public static var curDifficulty:Int = 1;
 
@@ -38,10 +37,11 @@ class FreeplayState extends MusicBeatState
 	var comboText:FlxText;
 	var diffText:FlxText;
 	var diffCalcText:FlxText;
-	var previewtext:FlxText;
 	var lerpScore:Int = 0;
 	var intendedScore:Int = 0;
 	var combo:String = '';
+	var bg:FlxSprite;
+	var scoreBG:FlxSprite;
 
 	private var grpSongs:FlxTypedGroup<Alphabet>;
 	private var curPlaying:Bool = false;
@@ -149,7 +149,7 @@ class FreeplayState extends MusicBeatState
 
 		// LOAD CHARACTERS
 
-		var bg:FlxSprite = new FlxSprite().loadGraphic(Paths.image('menuBGBlue'));
+		bg = new FlxSprite().loadGraphic(Paths.image('menuDesat'));
 		if(FlxG.save.data.antialiasing)
 			{
 				bg.antialiasing = true;
@@ -183,7 +183,7 @@ class FreeplayState extends MusicBeatState
 		scoreText.setFormat(Paths.font("vcr.ttf"), 32, FlxColor.WHITE, RIGHT);
 		// scoreText.alignment = RIGHT;
 
-		var scoreBG:FlxSprite = new FlxSprite(scoreText.x - 6, 0).makeGraphic(Std.int(FlxG.width * 0.35), 105, 0xFF000000);
+		scoreBG = new FlxSprite(scoreText.x - 6, 0).makeGraphic(1, 144, 0xFF000000);
 		scoreBG.alpha = 0.6;
 		add(scoreBG);
 
@@ -191,49 +191,18 @@ class FreeplayState extends MusicBeatState
 		diffText.font = scoreText.font;
 		add(diffText);
 
-		diffCalcText = new FlxText(scoreText.x, scoreText.y + 66, 0, "", 24);
-		diffCalcText.font = scoreText.font;
-		add(diffCalcText);
-
-		previewtext = new FlxText(scoreText.x, scoreText.y + 94, 0, "" + (KeyBinds.gamepad ? "X" : "SPACE") + " to preview", 24);
-		previewtext.font = scoreText.font;
-		//add(previewtext);
-
-		comboText = new FlxText(diffText.x + 100, diffText.y, 0, "", 24);
+		comboText = new FlxText(diffText.x, diffText.y + 36, 0, "", 24);
 		comboText.font = diffText.font;
 		add(comboText);
+		
+		diffCalcText = new FlxText(comboText.x, comboText.y + 36, 0, "", 24);
+		diffCalcText.font = scoreText.font;
+		add(diffCalcText);
 
 		add(scoreText);
 
 		changeSelection();
 		changeDiff();
-
-		// FlxG.sound.playMusic(Paths.music('title'), 0);
-		// FlxG.sound.music.fadeIn(2, 0, 0.8);
-		selector = new FlxText();
-
-		selector.size = 40;
-		selector.text = ">";
-		// add(selector);
-
-		var swag:Alphabet = new Alphabet(1, 0, "swag");
-
-		// JUST DOIN THIS SHIT FOR TESTING!!!
-		/* 
-			var md:String = Markdown.markdownToHtml(Assets.getText('CHANGELOG.md'));
-
-			var texFel:TextField = new TextField();
-			texFel.width = FlxG.width;
-			texFel.height = FlxG.height;
-			// texFel.
-			texFel.htmlText = md;
-
-			FlxG.stage.addChild(texFel);
-
-			// scoreText.textField.htmlText = md;
-
-			trace(md);
-		 */
 
 		super.create();
 	}
@@ -273,12 +242,15 @@ class FreeplayState extends MusicBeatState
 			lerpScore = intendedScore;
 
 		scoreText.text = "PERSONAL BEST:" + lerpScore;
-		comboText.text = combo + '\n';
+		comboText.text = '  ' + combo + '  ';
+		positionHighscore();
 
 		if (FlxG.sound.music.volume > 0.8)
 		{
 			FlxG.sound.music.volume -= 0.5 * FlxG.elapsed;
 		}
+		
+		bg.color = FlxColor.interpolate(bg.color, coolColors[songs[curSelected].week % coolColors.length], camLerpShit(0.045));
 
 		var upP = FlxG.keys.justPressed.UP;
 		var downP = FlxG.keys.justPressed.DOWN;
@@ -373,6 +345,11 @@ class FreeplayState extends MusicBeatState
 			LoadingState.loadAndSwitchState(new PlayState());
 		}
 	}
+	
+	public static function camLerpShit(ratio:Float)
+	{
+		return FlxG.elapsed / (1 / 60) * ratio;
+	}
 
 	function changeDiff(change:Int = 0)
 	{
@@ -396,7 +373,9 @@ class FreeplayState extends MusicBeatState
 		combo = Highscore.getCombo(songHighscore, curDifficulty);
 		#end
 		diffCalcText.text = 'RATING: ${DiffCalc.CalculateDiff(songData.get(songs[curSelected].songName)[curDifficulty])}';
-		diffText.text = CoolUtil.difficultyFromInt(curDifficulty).toUpperCase();
+		
+		diffText.text = '< ' + CoolUtil.difficultyFromInt(curDifficulty).toUpperCase() + ' >';
+		positionHighscore();
 	}
 
 	function changeSelection(change:Int = 0)
@@ -434,20 +413,6 @@ class FreeplayState extends MusicBeatState
 		#end
 
 		diffCalcText.text = 'RATING: ${DiffCalc.CalculateDiff(songData.get(songs[curSelected].songName)[curDifficulty])}';
-		
-		#if PRELOAD_ALL
-		if (songs[curSelected].songCharacter == "sm")
-		{
-			var data = songs[curSelected];
-			trace("Loading " + data.path + "/" + data.sm.header.MUSIC);
-			var bytes = File.getBytes(data.path + "/" + data.sm.header.MUSIC);
-			var sound = new Sound();
-			sound.loadCompressedDataFromByteArray(bytes.getData(), bytes.length);
-			FlxG.sound.playMusic(sound);
-		}
-		else
-			FlxG.sound.playMusic(Paths.inst(songs[curSelected].songName), 0);
-		#end
 
 		var hmm;
 			try
@@ -488,6 +453,17 @@ class FreeplayState extends MusicBeatState
 				// item.setGraphicSize(Std.int(item.width));
 			}
 		}
+	}
+	
+	function positionHighscore()
+	{
+		scoreText.x = FlxG.width - scoreText.width - 6;
+		scoreBG.scale.x = FlxG.width - scoreText.x + 6;
+		scoreBG.x = FlxG.width - scoreBG.scale.x / 2;
+		diffText.x = scoreBG.x + scoreBG.width / 2;
+		diffText.x -= diffText.width / 2;
+		comboText.x = diffText.x;
+		diffCalcText.x = comboText.x;
 	}
 }
 
